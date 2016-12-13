@@ -1,0 +1,19 @@
+name=DOTA
+uid=DTA
+identifier=D-T-A
+modifiedAA=True
+numberOfAtoms=38
+rotate=True
+radius=18.0
+rotationString=NxOxCxCA-CB-SG-SD-C17-C16-N5=C15xN3xC3xO3xC4xN4xO4xC5xN2xO5xC6xO6xC7xC8xC9xC10xC11xC12xC13xC14xO2xC2xO1xC18xGdxC1xN1xO7
+spinLocation=Gd
+highlight=Gd
+atomsForSuperposition=CA,N,C,CB
+defaultVdw=tight
+numberToFind=10240,200,50
+numberOfTries=100000,1000,500
+info=DTA selected.
+errorMessage=errormessage
+trialAtomSphereRadius=7.5
+exclusionSphereRadius=5.5
+pdbFile=dta.pdb

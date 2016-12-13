@@ -1,0 +1,22 @@
+uid=K1
+name=K1
+identifier=K-1
+modifiedAA=True
+numberOfAtoms=26
+rotate=True
+radius=13.0
+# - : free rotation
+# = : only cis/trans
+# ! :  from here on, the last atom in the list is ignored. This is useful for amids...
+rotationString=NxOxCxCA-CB-C19xC18xC17xC25xC26xC16-C02!=N03-O04-CE-C3xO1xC2xN1xC4xC5xC6xC7xC8xC9xC01
+spinLocation=N1
+highlight=O1
+atomsForSuperposition=CA,N,C,CB
+defaultVdw=tight
+numberToFind=2000,200,50
+numberOfTries=100000,10000,1000
+info=K1 selected.
+errorMessage=errormessage
+trialAtomSphereRadius=7.5
+exclusionSphereRadius=5.5
+pdbFile=k1.pdb
