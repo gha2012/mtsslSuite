@@ -16,6 +16,7 @@ class Environment:
 		self.scoreClashes = scoreClashes
 		#self.scoreCOGdiff = False
 		self.constraintNames = []
+		print "Score clashes: ", self.scoreClashes
 
 	def quickClash(self, atomsProteinA, atomsProteinB, cutoff):
 		clashes = 0
@@ -99,23 +100,17 @@ class Environment:
 				chromosome.clashes = fitness[2]
 				chromosome.cogDiff = fitness[3]
 				
-				# add clash penalty
+				# add clash penalty if more than 5 clashes
 				if self.scoreClashes == True and chromosome.clashes > 5:
 					chromosome.fitness = chromosome.chi2 + chromosome.clashes * chromosome.chi2
 				else:
 					chromosome.fitness = chromosome.chi2
-				# add penalty for distance between center of gravity
-# 				if self.scoreCOGdiff == True:
-# 					proteinARadius = self.proteinA.approximateRadius
-# 					proteinBRadius = self.proteinB.approximateRadius
-# 					approximateCogDifference = proteinARadius + proteinBRadius
-# 					if chromosome.cogDiff > 1.0 * approximateCogDifference:
-# 						chromosome.fitness = chromosome.chi2 + chromosome.cogDiff/approximateCogDifference * chromosome.chi2
 				
-				if self.scoreClashes == False:
-					chromosome.log += chromosome.printChromosomeWithClashes()
-				else:
-					chromosome.log += chromosome.printChromosomeWithoutClashes()
+				#if self.scoreClashes == False:
+				#	chromosome.log += chromosome.printChromosomeWithClashes()
+				#else:
+				#	chromosome.log += chromosome.printChromosomeWithoutClashes()
+				
 				if chromosome.fitness < population.bestChromosome.fitness:
 					population.bestChromosome = chromosome
 					population.bestChromosome.generationNumber = generation
@@ -123,11 +118,12 @@ class Environment:
 				chromosome.trialDistances = trialDistances
 			counter += 1
 		if newBest:
-			if self.scoreClashes:
-				chromosome.generationNumber = generation
-				population.log += population.bestChromosome.printChromosomeWithClashes()
-			else:
-				chromosome.generationNumber = generation
-				population.log += population.bestChromosome.printChromosomeWithoutClashes()
+			population.log += population.bestChromosome.printChromosomeWithClashes()
+			#if self.scoreClashes:
+			#	chromosome.generationNumber = generation
+			#	population.log += population.bestChromosome.printChromosomeWithClashes()
+			#else:
+			#	chromosome.generationNumber = generation
+			#	population.log += population.bestChromosome.printChromosomeWithoutClashes()
 
 #-----------------------------------------------------------------------------------------

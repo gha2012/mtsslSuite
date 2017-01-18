@@ -43,7 +43,8 @@ class Docker:
 	def worker(self, environment, idx, resultQueue, progressQueue):
 		#print "clashes: ", self.scoreClashes
 		#print "cogDiff: ", self.scoreCOGdiff
-		environment.scoreClashes = self.scoreClashes
+		#environment.scoreClashes = self.scoreClashes
+		#print environment.scoreClashes
 		#environment.scoreCOGdiff = self.scoreCOGdiff
 		if idx >= 0:
 			population = environment.populations[idx]
@@ -158,7 +159,7 @@ class Docker:
 			populations.append(population)
 
 		# put them into an environment and evolve
-		environment1 = Environment(populations, proteinA, proteinB, expDistances, expErrors, weights, False)
+		environment1 = Environment(populations, proteinA, proteinB, expDistances, expErrors, weights, self.scoreClashes)
 		environment1.constraintNames = constraintNames
 
 		self.processes = []

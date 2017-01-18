@@ -52,12 +52,12 @@ class Chromosome:
 	#-------------------------------------------------------------------------------------
 	def printChromosomeWithClashes(self):
 		#string = "rotX: %1.2f\t rotY: %1.2f\t rotZ: %1.2f\t tX: %1.2f\t tY: %1.2f\t tZ: %1.2f\t rmsd:%1.2f\t chi2:%1.2f\t clashes:%i\t cogDist:%1.2f\n" %(self.genes[0],self.genes[1],self.genes[2],self.genes[3],self.genes[4],self.genes[5], self.rmsd, self.chi2, self.clashes, self.cogDiff)
-		string = "%i %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.4f %i %1.2f %1.2f\n" % (self.generationNumber, self.genes[0], self.genes[1], self.genes[2], self.genes[3], self.genes[4], self.genes[5], self.rmsd, self.chi2, self.clashes, self.cogDiff, self.fitness)
+		string = "%i %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.4f %i %1.2f\n" % (self.generationNumber, self.genes[0], self.genes[1], self.genes[2], self.genes[3], self.genes[4], self.genes[5], self.rmsd, self.chi2, self.clashes, self.fitness)
 		# print string
 		return string
 
 	def printChromosomeWithoutClashes(self):
 		#string = "rotX: %1.2f\t rotY: %1.2f\t rotZ: %1.2f\t tX: %1.2f\t tY: %1.2f\t tZ: %1.2f\t rmsd:%1.2f\t chi2:%1.2f\t clashes:%i\n" %(self.genes[0],self.genes[1],self.genes[2],self.genes[3],self.genes[4],self.genes[5], self.rmsd, self.chi2, self.clashes)
-		string = "%i %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.4f - %1.2f %1.2f\n" % (self.generationNumber, self.genes[0], self.genes[1], self.genes[2], self.genes[3], self.genes[4], self.genes[5], self.rmsd, self.chi2, self.cogDiff, self.fitness)
+		string = "%i %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.2f %1.4f - %1.2f\n" % (self.generationNumber, self.genes[0], self.genes[1], self.genes[2], self.genes[3], self.genes[4], self.genes[5], self.rmsd, self.chi2, self.fitness)
 		# print string
 		return string

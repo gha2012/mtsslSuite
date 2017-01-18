@@ -6,6 +6,7 @@ from threading import Thread
 import string
 import math
 import numpy
+import copy
 from operator import attrgetter
 import pymol
 from protein import Protein
@@ -20,6 +21,7 @@ from wx.lib.pubsub import setupkwargs
 from wx.lib.pubsub import pub
 from ObjectListView import ObjectListView, ColumnDefn, OLVEvent
 import wx.lib.agw.flatnotebook as fnb
+from random import randint, uniform
 
 ##########################################################################################
 
@@ -35,13 +37,17 @@ class MainWindow(wx.Frame):
 		self.notebook_1.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.onNotebookPageChanged)
 		self.notebook_1.Bind(fnb.EVT_FLATNOTEBOOK_PAGE_CLOSING, self.onNotebookPageClosing)
 		self.notebook_1_pane_1 = wx.Panel(self.notebook_1, wx.ID_ANY)
-		self.bounding_box_1 = wx.StaticBox(self.notebook_1_pane_1, label='Complex components')
+		self.bounding_box_1 = wx.StaticBox(self.notebook_1_pane_1, label='Settings')
 		
 		currentPymolObjects = cmd.get_object_list('(all)')
 		self.label_1 = wx.StaticText(self.notebook_1_pane_1, wx.ID_ANY, "Fixed molecule:")
 		self.combo_box_1 = wx.ComboBox(self.notebook_1_pane_1, 0, style=wx.CB_READONLY, choices=currentPymolObjects)
 		self.label_2 = wx.StaticText(self.notebook_1_pane_1, wx.ID_ANY, "Moving molecule:")
 		self.combo_box_2 = wx.ComboBox(self.notebook_1_pane_1, 0, style=wx.CB_READONLY, choices=currentPymolObjects)		
+		self.label_3 = wx.StaticText(self.notebook_1_pane_1, wx.ID_ANY, "Score clashes:")
+		self.combo_box_3 = wx.ComboBox(self.notebook_1_pane_1, 0, style=wx.CB_READONLY, choices=["Yes", "No"])
+		self.label_4 = wx.StaticText(self.notebook_1_pane_1, wx.ID_ANY, "Symmetry:")
+		self.combo_box_4 = wx.ComboBox(self.notebook_1_pane_1, 0, style=wx.CB_READONLY, choices=["None", "C2", "C3", "C4", "C5", "C6", "C7", "C8"])
 
 		self.scrollingPanel = wx.lib.scrolledpanel.ScrolledPanel(self.notebook_1_pane_1)
 		self.scrollingPanel.SetupScrolling()
@@ -141,7 +147,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.startDockingThread, id=22)
 		stopDockingItem = wx.MenuItem(dockMenu, 23, '&Abort docking run\tCtrl+Z')
 		self.Bind(wx.EVT_MENU, self.stopDockingThread, id=23)
-		showSettingsItem = wx.MenuItem(dockMenu, 24, '&Settings...')
+		showSettingsItem = wx.MenuItem(dockMenu, 24, '&Advanced settings...')
 		self.Bind(wx.EVT_MENU, self.onShowSettingsDialog, id=24)
 		dockMenu.AppendItem(addRestraintItem)
 		dockMenu.AppendItem(deleteRestraintItem)
@@ -173,6 +179,12 @@ class MainWindow(wx.Frame):
 		self.settings['scoreClashes'] = True
 		self.settings['scoreCOGdiff'] = True
 		self.settings['symmetry'] = "None"
+		if self.settings["scoreClashes"]:
+			self.combo_box_3.SetValue("Yes")
+		else:
+			self.combo_box_3.SetValue("No")
+		self.combo_box_4.SetValue(self.settings["symmetry"])
+
 
 	#-------------------------------------------------------------------------------------
 
@@ -188,6 +200,10 @@ class MainWindow(wx.Frame):
 		settingsSizer.Add(self.combo_box_1, 0, flag = wx.ALL, border=3)
 		settingsSizer.Add(self.label_2, 0, flag = wx.ALL, border=7)
 		settingsSizer.Add(self.combo_box_2, flag = wx.ALL, border=3)
+		settingsSizer.Add(self.label_3, 0,flag = wx.ALL, border=7)
+		settingsSizer.Add(self.combo_box_3, 0, flag = wx.ALL, border=3)
+		settingsSizer.Add(self.label_4, 0, flag = wx.ALL, border=7)
+		settingsSizer.Add(self.combo_box_4, flag = wx.ALL, border=3)
 
 		notebookSizer.Add(settingsSizer, 0, flag = wx.EXPAND | wx.ALL, border=7)
 		notebookSizer.Add(self.scrollingPanel, 1, flag = wx.EXPAND | wx.ALL, border=7)
@@ -331,12 +347,12 @@ class MainWindow(wx.Frame):
 		res = dlg.ShowModal()
 		if res == wx.ID_OK:
 			self.settings['numberOfPopulations'] = int(dlg.text_ctrl_4.GetValue())
-			self.settings['numberOfGenerations'] = int(dlg.text_ctrl_1.GetValue())
-			self.settings['numberOfChromosomes'] = int(dlg.text_ctrl_2.GetValue())
+			self.settings['numberOfGenerations'] = int(dlg.text_ctrl_2.GetValue())
+			self.settings['numberOfChromosomes'] = int(dlg.text_ctrl_1.GetValue())
 			self.settings['numberOfRigidBodyCycles'] = int(dlg.text_ctrl_3.GetValue())
-			self.settings['scoreClashes'] = dlg.combo_box_2.GetValue()
+			#self.settings['scoreClashes'] = dlg.combo_box_2.GetValue()
 			#self.settings['scoreCOGdiff'] = dlg.combo_box_3.GetValue()
-			self.settings['symmetry'] = dlg.combo_box_1.GetValue()
+			#self.settings['symmetry'] = dlg.combo_box_1.GetValue()
 		dlg.Destroy()
 
 	#-------------------------------------------------------------------------------------
@@ -389,6 +405,46 @@ class MainWindow(wx.Frame):
 
 	#-------------------------------------------------------------------------------------
 
+	def hsv_to_rgb(self, h, s, v):
+		"""Converts HSV value to RGB values
+		Hue is in range 0-359 (degrees), value/saturation are in range 0-1 (float)
+
+		http://stackoverflow.com/questions/1586147/how-to-generate-random-greenish-colors
+
+		Direct implementation of:
+		http://en.wikipedia.org/wiki/HSL_and_HSV#Conversion_from_HSV_to_RGB
+		"""
+		h, s, v = [float(x) for x in (h, s, v)]
+
+		hi = (h / 60) % 6
+		hi = int(round(hi))
+
+		f = (h / 60) - (h / 60)
+		p = v * (1 - s)
+		q = v * (1 - f * s)
+		t = v * (1 - (1 - f) * s)
+
+		if hi == 0:
+			return v, t, p
+		elif hi == 1:
+			return q, v, p
+		elif hi == 2:
+			return p, v, t
+		elif hi == 3:
+			return p, q, v
+		elif hi == 4:
+			return t, p, v
+		elif hi == 5:
+			return v, p, q
+
+	def colorObject(self, selection):
+		h = randint(90, 140) # Select random green'ish hue from hue wheel
+		s = uniform(0.2, 1)
+		v = uniform(0.3, 1)
+		r, g, b = self.hsv_to_rgb(h, s, v)
+		cmd.set_color("random_color", [r, g, b])
+		cmd.color("random_color", selection)
+
 	def createSolutionsInPymol(self, dockingResults, id):
 		try:
 			objectPrefix = "mD"
@@ -417,6 +473,7 @@ class MainWindow(wx.Frame):
 						cmd.align(nameOfSolution, proteinA.pymolString, target_state=1, mobile_state=1)
 					clashingSolution += 1
 			cmd.group("%s-%i" % (objectPrefix, dockingRunNumber), "%s-%i*" % (objectPrefix, dockingRunNumber))
+			self.colorObject("%s-%i" % (objectPrefix, dockingRunNumber))
 			pub.sendMessage("add.pymol")
 		except Exception,e:
 			self.statusBar.SetStatusText("Cannot create solutions in PyMOL.")
@@ -445,6 +502,10 @@ class MainWindow(wx.Frame):
 		for restraint in restraints:
 			newRestraintView = RestraintView(self.scrollingPanel, currentNumberOfRestraints + 1)
 			newRestraintView.id = currentNumberOfRestraints + 1
+			try:
+				newRestraintView.label_0.SetValue(restraint["Name"])
+			except:
+				pass
 			newRestraintView.combo_box_1.SetValue(restraint["anchorAname"])
 			newRestraintView.combo_box_2.SetValue(restraint["anchorBname"])
 			newRestraintView.text_ctrl_1.SetValue(str(restraint["distance"]))
@@ -514,6 +575,11 @@ class MainWindow(wx.Frame):
 			return
 		
 		if len(self.restraintViews) > 0 and len(self.combo_box_1.GetValue()) > 0 and len(self.combo_box_2.GetValue()) > 0:
+			if self.combo_box_3.GetValue() == "Yes":
+				self.settings['scoreClashes'] = True
+			elif self.combo_box_3.GetValue() == "No":
+				self.settings['scoreClashes'] = False
+			self.settings['symmetry'] = self.combo_box_4.GetValue()
 			self.dockingThread = DockingThread(self.runNumber, restraints, self.settings)
 		else:
 			self.statusBar.SetStatusText("Cannot start docking run. Something wrong with input.")
@@ -523,8 +589,10 @@ class MainWindow(wx.Frame):
 
 	def onDockingResultReady(self, result):
 		dockingResult = result["dockingResult"]
-		settings = result["settings"]
-		resultsPageContents = ResultsPageContents(self.notebook_1, self.runNumber, dockingResult, settings)
+		settings = copy.deepcopy(result["settings"])
+		restraints = result["restraints"]
+		#print result["settings"]
+		resultsPageContents = ResultsPageContents(self.notebook_1, self.runNumber, dockingResult, settings, restraints)
 		self.notebook_1.AddPage(resultsPageContents, "Result-%i"%self.runNumber)
 		self.resultsPages.append(resultsPageContents)
 		self.notebook_1.Layout()
@@ -532,6 +600,9 @@ class MainWindow(wx.Frame):
 		self.statusBar.SetStatusText("Docking run finished.")
 		self.progress.SetValue(0)
 		self.toolbar.EnableTool( 2, True )
+		#for resultPage in self.resultsPages:
+		#	print resultPage.settings
+		#	print 
 
 	#-------------------------------------------------------------------------------------
 
@@ -541,6 +612,7 @@ class MainWindow(wx.Frame):
 			if restraintView.active:
 				restraint = {}
 				restraint["id"] = restraintView.id
+				restraint["Name"] = restraintView.getRestraintName()
 				restraint["proteinAname"] = self.combo_box_1.GetValue()
 				restraint["proteinBname"] = self.combo_box_2.GetValue()
 				restraint["anchorAname"] = restraintView.combo_box_1.GetValue()
@@ -604,8 +676,9 @@ class ResultsTable(wx.Panel):
 
 	#-------------------------------------------------------------------------------------
 
-	def __init__(self, parent, dockingResults, settings):
+	def __init__(self, parent, dockingResults, settings, restraints):
 		wx.Panel.__init__(self, parent)
+		self.restraints = restraints
 		self.settings = settings
 		self.dockingResults = dockingResults
 		self.bounding_box = wx.StaticBox(self, label='Details for selected solution')
@@ -723,11 +796,14 @@ class ResultsTable(wx.Panel):
 			self.grid_1.SetColLabelValue(9, "")
 			self.grid_1.SetColLabelValue(10, "")
 			#self.grid_1.SetColLabelValue(11, "")
+			restraintIds = []
+			for restraint in self.restraints:
+				restraintIds.append(restraint["Name"])
 			expDistances = self.dockingResults.expDistances
 			expErrors = self.dockingResults.expErrors
 			dockedDistances = self.dockingResults.populations[index].chromosomes[0].trialDistances
-			for idx, values in enumerate (zip(dockedDistances, expDistances, expErrors)):
-				self.grid_1.SetCellValue(idx, 0, "%i" %(idx + 1))
+			for idx, values in enumerate (zip(dockedDistances, expDistances, expErrors, restraintIds)):
+				self.grid_1.SetCellValue(idx, 0, "%s" %(values[3]))
 				self.grid_1.SetCellValue(idx, 1, "%1.1f" %values[0])
 				self.grid_1.SetCellValue(idx, 2, "%1.1f (%1.1f)" %(values[1], values[2]))
 				self.grid_1.SetCellValue(idx, 3, "%1.1f" %(numpy.abs(values[0]-values[1])))
@@ -794,10 +870,10 @@ class ResultsList(wx.Panel):
 		self.pymolColumn = ColumnDefn("PyMOL", fixedWidth=70, checkStateGetter="isChecked")
 		self.resultsOlv.SetColumns([
 			self.pymolColumn,
-			ColumnDefn("Name", "left", 300, "name", isSpaceFilling=True),
+			ColumnDefn("Name", "left", 300, "name", isSpaceFilling=False),
 			ColumnDefn("Chi2", "left", 100, "chi2", stringConverter="%.2f"),
 			ColumnDefn(u"Rmsd (\u212B)", "left", 100, "rmsd", stringConverter="%.2f"),
-			ColumnDefn("Clashes", "left", 100, "clashes", stringConverter="%i"),
+			ColumnDefn("Clashes", "left", 100, "clashes", stringConverter="%i", isSpaceFilling=True),
 			])
 
 	#-------------------------------------------------------------------------------------
@@ -805,10 +881,10 @@ class ResultsList(wx.Panel):
 	def setOlvColumns(self, data=None):
 		#self.pymolColumn = ColumnDefn("PyMOL", fixedWidth=70, checkStateGetter="isChecked")
 		self.resultsOlv.SetColumns([
-			ColumnDefn("Name", "left", 300, "name", isSpaceFilling=True),
+			ColumnDefn("Name", "left", 300, "name", isSpaceFilling=False),
 			ColumnDefn("Chi2", "left", 100, "chi2", stringConverter="%.2f"),
 			ColumnDefn(u"Rmsd (\u212B)", "left", 100, "rmsd", stringConverter="%.2f"),
-			ColumnDefn("Clashes", "left", 100, "clashes", stringConverter="%i"),
+			ColumnDefn("Clashes", "left", 100, "clashes", stringConverter="%i", isSpaceFilling=True),
 			])
 			
 
@@ -839,15 +915,15 @@ class ResultsPageContents(wx.Panel):
 
 	#-------------------------------------------------------------------------------------
 
-	def __init__(self, parent, id, dockingResults, settings):
+	def __init__(self, parent, id, dockingResults, settings, restraints):
 		wx.Panel.__init__(self, parent)
 		self.settings = settings
 		self.id = id
 		self.dockingResults = dockingResults
 		self.splitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
 		self.topPanel = ResultsList(self.splitter, dockingResults)
-		self.bottomPanel = ResultsTable(self.splitter, dockingResults, settings)
-		self.splitter.SplitHorizontally(self.topPanel, self.bottomPanel)
+		self.bottomPanel = ResultsTable(self.splitter, dockingResults, settings, restraints)
+		self.splitter.SplitVertically(self.topPanel, self.bottomPanel)
 		self.__set_properties()
 		self.__do_layout()
 
@@ -887,7 +963,7 @@ class RestraintView(wx.Panel):
 		self.active = True
 		self.selected = False
 		self.id = id
-		self.label_0 = wx.StaticText(self, wx.ID_ANY, 'Restraint: %i' %self.id)
+		self.label_0 = wx.TextCtrl(self, wx.ID_ANY, 'Restraint: %i' %self.id)
 		self.activeCheckBox = wx.CheckBox(self, wx.ID_ANY, label = "Include in docking run?")
 		self.activeCheckBox.Bind(wx.EVT_CHECKBOX, self.onCheckStateChanged)
 		
@@ -913,6 +989,7 @@ class RestraintView(wx.Panel):
 
 	def __set_properties(self):
 		self.activeCheckBox.SetValue(True)
+		self.label_0.SetMinSize((200, 25))
 		self.label_1.SetMinSize((200, 25))
 		self.label_2.SetMinSize((200, 25))
 		self.label_3.SetMinSize((150, 25))
@@ -952,6 +1029,11 @@ class RestraintView(wx.Panel):
 		self.SetSizer(sizer_0)
 		sizer_0.Fit(self)
 		self.Layout()
+
+	#-------------------------------------------------------------------------------------
+
+	def getRestraintName(self):
+		return self.label_0.GetValue()
 
 	#-------------------------------------------------------------------------------------
 
@@ -1021,6 +1103,7 @@ class DockingThread(Thread):
 			result = {}
 			result["dockingResult"] = dockingResult
 			result["settings"] = settings
+			result["restraints"] = self.restraints
 			wx.CallAfter(pub.sendMessage, "docking.ready", result=result)
 			self.stop()
 		
@@ -1047,30 +1130,35 @@ class SettingsDialog(wx.Dialog):
 	#-------------------------------------------------------------------------------------
 
 	def __init__(self, currentSettings):
-		wx.Dialog.__init__(self, None, title="Settings")
+		wx.Dialog.__init__(self, None, title="Advanced settings")
 		self.text_ctrl_2 = wx.TextCtrl(self, wx.ID_ANY, "%i" %currentSettings["numberOfGenerations"])
 		self.label_1 = wx.StaticText(self, wx.ID_ANY, "#Optimisation cycles")
+		
 		self.text_ctrl_1 = wx.TextCtrl(self, wx.ID_ANY, "%i" %currentSettings["numberOfChromosomes"])
 		self.label_2 = wx.StaticText(self, wx.ID_ANY, "#Starting structures")
+		
 		self.text_ctrl_3 = wx.TextCtrl(self, wx.ID_ANY, "%i" %currentSettings["numberOfRigidBodyCycles"])
 		self.label_3 = wx.StaticText(self, wx.ID_ANY, "#Refinement cycles")
-		self.combo_box_1 = wx.ComboBox(self, 0, style=wx.CB_READONLY, choices=["None", "C2", "C3", "C4", "C5", "C6", "C7", "C8"])
-		self.label_4 = wx.StaticText(self, wx.ID_ANY, "Symmetry")
-		self.combo_box_2 = wx.ComboBox(self, 0, style=wx.CB_READONLY, choices=["True", "False"])
-		self.label_5 = wx.StaticText(self, wx.ID_ANY, "Score clashes")
+		
+		#self.combo_box_1 = wx.ComboBox(self, 0, style=wx.CB_READONLY, choices=["None", "C2", "C3", "C4", "C5", "C6", "C7", "C8"])
+		#self.label_4 = wx.StaticText(self, wx.ID_ANY, "Symmetry")
+		#self.combo_box_2 = wx.ComboBox(self, 0, style=wx.CB_READONLY, choices=["True", "False"])
+		#self.label_5 = wx.StaticText(self, wx.ID_ANY, "Score clashes")
 		#self.combo_box_3 = wx.ComboBox(self, 0, style=wx.CB_READONLY, choices=["True", "False"])
 		#self.label_7 = wx.StaticText(self, wx.ID_ANY, "Score COGdiff")
 		self.text_ctrl_4 = wx.TextCtrl(self, wx.ID_ANY, "%i" %currentSettings["numberOfPopulations"])
 		self.label_6 = wx.StaticText(self, wx.ID_ANY, "#Runs")
+		
 		self.okBtn = wx.Button(self, wx.ID_OK)
-		self.__set_properties(currentSettings)
+		#self.__set_properties(currentSettings)
 		self.__do_layout()
 
 	#-------------------------------------------------------------------------------------
 
 	def __set_properties(self, currentSettings):
-		self.combo_box_1.SetValue(currentSettings["symmetry"])
-		self.combo_box_2.SetValue("%s" %currentSettings["scoreClashes"])
+		pass
+		#self.combo_box_1.SetValue(currentSettings["symmetry"])
+		#self.combo_box_2.SetValue("%s" %currentSettings["scoreClashes"])
 		#self.combo_box_3.SetValue("%s" %currentSettings["scoreCOGdiff"])
 
 	#-------------------------------------------------------------------------------------
@@ -1084,10 +1172,10 @@ class SettingsDialog(wx.Dialog):
 		grid_sizer_1.Add(self.label_2, 0, wx.ALL, border=7)
 		grid_sizer_1.Add(self.text_ctrl_3, 0, wx.ALL, border=7)
 		grid_sizer_1.Add(self.label_3, 0, wx.ALL, border=7)
-		grid_sizer_1.Add(self.combo_box_1, 0,wx.ALL, border=7)
-		grid_sizer_1.Add(self.label_4, 0, wx.ALL, border=7)
-		grid_sizer_1.Add(self.combo_box_2, 0, wx.ALL, border=7)
-		grid_sizer_1.Add(self.label_5, 0, wx.ALL, border=7)
+		#grid_sizer_1.Add(self.combo_box_1, 0,wx.ALL, border=7)
+		#grid_sizer_1.Add(self.label_4, 0, wx.ALL, border=7)
+		#grid_sizer_1.Add(self.combo_box_2, 0, wx.ALL, border=7)
+		#grid_sizer_1.Add(self.label_5, 0, wx.ALL, border=7)
 		#grid_sizer_1.Add(self.combo_box_3, 0, wx.ALL, border=7)
 		#grid_sizer_1.Add(self.label_7, 0, wx.ALL, border=7)
 		grid_sizer_1.Add(self.text_ctrl_4, 0,wx.ALL, border=7)
